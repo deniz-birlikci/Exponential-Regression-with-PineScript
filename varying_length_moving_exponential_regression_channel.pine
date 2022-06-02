@@ -1,6 +1,6 @@
 //@version=5
 // 
-indicator('Varying Length Moving Exponential Regression Channel', 'VLMERC by MD', overlay = true)
+indicator('Varying Length Moving Exponential Regression Channel', 'VLMERC by MD', overlay = true, max_bars_back = 5000)
 
 // -Inputs -------------------------------------------------------------------------------------- //
 group_linReg    = 'Varying Length Moving Exponential Regression Channel Settings'
@@ -8,10 +8,19 @@ i_linregSrc     = input.source(close, 'Source')
 doubleLog        = input.bool(true, 'Double Log')
 y = input.int(5, 'Analysis period', minval=0, maxval=30)
 inf_period = input.bool(true, 'Infinite analysis period')
+devSetup = input.string('half of analysis period', 'Standard Deviation interval', options=['entire analysis period', 'half of analysis period', 'third of analysis period', 'quarter of analysis period', '360D', '180D', '90D', '30D'], group=group_linReg)
+logDev = input.string('deactive', 'Logarithmic Deviation', options=['deactive', 'standard', 'relative'], group=group_linReg)
 
-color1 = input.color(color.white, 'Regression Fib 1      '          , inline='lrLine', group=group_linReg)
-color2 = input.color(color.aqua, 'Regression Fib 2      '          , inline='lrLine', group=group_linReg)
-color3 = input.color(color.red, 'Regression Fib 3      '          , inline='lrLine', group=group_linReg)
+amber = #ffbe0b
+mantis = #81c14b
+vividSkyBlue = #54c6eb
+purpleX = #8447ff
+fieryRose = #ff5964
+
+color0 = input.color(mantis, 'Regression Fib Main      '          , inline='lrLine', group=group_linReg)
+color1 = input.color(amber, 'Regression Fib 1      '          , inline='lrLine', group=group_linReg)
+color2 = input.color(vividSkyBlue, 'Regression Fib 2      '          , inline='lrLine', group=group_linReg)
+color3 = input.color(purpleX, 'Regression Fib 3      '          , inline='lrLine', group=group_linReg)
 
 fib1 = input.float(0.618, 'fib1 LB', minval=0.0, maxval=5.0)
 fib2 = input.float(1.000, 'fib1 UB', minval=0.0, maxval=5.0)
@@ -20,6 +29,12 @@ fib4 = input.float(2.000, 'fib2 UB', minval=0.0, maxval=5.0)
 fib5 = input.float(2.618, 'fib3 LB', minval=0.0, maxval=5.0)
 fib6 = input.float(3.000, 'fib3 UB', minval=0.0, maxval=5.0)
 
+logfib1 = input.float(0.142, 'logarithmic fib1 LB', minval=0.0, maxval=5.0, group = group_linReg)
+logfib2 = input.float(0.236, 'logarithmic fib1 UB', minval=0.0, maxval=5.0, group = group_linReg)
+logfib3 = input.float(0.382, 'logarithmic fib2 LB', minval=0.0, maxval=5.0, group = group_linReg)
+logfib4 = input.float(0.500, 'logarithmic fib2 UB', minval=0.0, maxval=5.0, group = group_linReg)
+logfib5 = input.float(0.618, 'logarithmic fib3 LB', minval=0.0, maxval=5.0, group = group_linReg)
+logfib6 = input.float(0.786, 'logarithmic fib3 UB', minval=0.0, maxval=5.0, group = group_linReg)
 
 singleLogSRC = math.log(i_linregSrc)
 doubleLogSRC = math.log(math.log(i_linregSrc))
@@ -28,21 +43,90 @@ movingSeriesSrc = doubleLog ? doubleLogSRC : singleLogSRC
 linRegLen = inf_period ? bar_index + 1 : 360*y
 movingSeries1 = ta.linreg(movingSeriesSrc, linRegLen, 0)
 lrc1 = doubleLog ? math.exp(math.exp(movingSeries1)) : math.exp(movingSeries1)
-dev1 = ta.ema(ta.stdev(close, 360 * y, false), 180 * y)
-// dev1 = ta.ema(ta.stdev(close, 360 * y, false), 1)
+
+stDevLen = 360 * y
+devPeriod = inf_period ? math.min(stDevLen, bar_index + 1) : stDevLen
+devEmaLen = devSetup == 'entire analysis period' ? 360 * y : devSetup == 'half of analysis period' ? 180 * y : devSetup == 'third of analysis period' ? 120 * y : devSetup == 'quarter of analysis period' ? 90 * y : devSetup == '360D' ? 360 : devSetup == '180D' ? 180 : devSetup == '90D' ? 90 : 30
+dev1 = ta.ema(ta.stdev(close, devPeriod, false), devEmaLen)
 // dev1 = ta.stdev(close, 360 * y, true)
 
-plot(lrc1, 'LRC Band Main', color.green, 3)
+plot(lrc1, 'LRC Band Main', color0, 3)
 
-plot(lrc1 + fib1 * dev1, 'LRC Band StdDev Fib 1 LowerBound', color1, 1)
-plot(lrc1 - fib1 * dev1, 'LRC Band StdDev Fib 1 LowerBound', color1, 1)
-plot(lrc1 + fib2 * dev1, 'LRC Band StdDev Fib 1 UpperBound', color1, 1)
-plot(lrc1 - fib2 * dev1, 'LRC Band StdDev Fib 1 UpperBound', color1, 1)
-plot(lrc1 + fib3 * dev1, 'LRC Band StdDev Fib 2 LowerBound', color2, 1)
-plot(lrc1 - fib3 * dev1, 'LRC Band StdDev Fib 2 LowerBound', color2, 1)
-plot(lrc1 + fib4 * dev1, 'LRC Band StdDev Fib 2 UpperBound', color2, 1)
-plot(lrc1 - fib4 * dev1, 'LRC Band StdDev Fib 2 UpperBound', color2, 1)
-plot(lrc1 + fib5 * dev1, 'LRC Band StdDev Fib 3 LowerBound', color3, 1)
-plot(lrc1 - fib5 * dev1, 'LRC Band StdDev Fib 3 LowerBound', color3, 1)
-plot(lrc1 + fib6 * dev1, 'LRC Band StdDev Fib 3 UpperBound', color3, 1)
-plot(lrc1 - fib6 * dev1, 'LRC Band StdDev Fib 3 UpperBound', color3, 1)
+ratio1 = logfib1 * dev1 / lrc1
+ratio2 = logfib2 * dev1 / lrc1
+ratio3 = logfib3 * dev1 / lrc1
+ratio4 = logfib4 * dev1 / lrc1
+ratio5 = logfib5 * dev1 / lrc1
+ratio6 = logfib6 * dev1 / lrc1
+
+stdDev01 = lrc1 + fib1 * dev1
+stdDev02 = lrc1 - fib1 * dev1
+stdDev03 = lrc1 + fib2 * dev1
+stdDev04 = lrc1 - fib2 * dev1
+stdDev05 = lrc1 + fib3 * dev1
+stdDev06 = lrc1 - fib3 * dev1
+stdDev07 = lrc1 + fib4 * dev1
+stdDev08 = lrc1 - fib4 * dev1
+stdDev09 = lrc1 + fib5 * dev1
+stdDev10 = lrc1 - fib5 * dev1
+stdDev11 = lrc1 + fib6 * dev1
+stdDev12 = lrc1 - fib6 * dev1
+
+logDev01 = math.exp(math.log(lrc1) * (1 + ratio1))
+logDev02 = math.exp(math.log(lrc1) * (1 - ratio1))
+logDev03 = math.exp(math.log(lrc1) * (1 + ratio2))
+logDev04 = math.exp(math.log(lrc1) * (1 - ratio2))
+logDev05 = math.exp(math.log(lrc1) * (1 + ratio3))
+logDev06 = math.exp(math.log(lrc1) * (1 - ratio3))
+logDev07 = math.exp(math.log(lrc1) * (1 + ratio4))
+logDev08 = math.exp(math.log(lrc1) * (1 - ratio4))
+logDev09 = math.exp(math.log(lrc1) * (1 + ratio5))
+logDev10 = math.exp(math.log(lrc1) * (1 - ratio5))
+logDev11 = math.exp(math.log(lrc1) * (1 + ratio6))
+logDev12 = math.exp(math.log(lrc1) * (1 - ratio6))
+
+repRatio1 = 1 - (math.log(lrc1 - fib1 * dev1) / math.log(lrc1))
+repRatio2 = 1 - (math.log(lrc1 - fib2 * dev1) / math.log(lrc1))
+repRatio3 = 1 - (math.log(lrc1 - fib3 * dev1) / math.log(lrc1))
+repRatio4 = 1 - (math.log(lrc1 - fib4 * dev1) / math.log(lrc1))
+repRatio5 = 1 - (math.log(lrc1 - fib5 * dev1) / math.log(lrc1))
+repRatio6 = 1 - (math.log(lrc1 - fib6 * dev1) / math.log(lrc1))
+
+repLogDev01 = math.exp(math.log(lrc1) * (1 + repRatio1))
+repLogDev02 = math.exp(math.log(lrc1) * (1 - repRatio1))
+repLogDev03 = math.exp(math.log(lrc1) * (1 + repRatio2))
+repLogDev04 = math.exp(math.log(lrc1) * (1 - repRatio2))
+repLogDev05 = math.exp(math.log(lrc1) * (1 + repRatio3))
+repLogDev06 = math.exp(math.log(lrc1) * (1 - repRatio3))
+repLogDev07 = math.exp(math.log(lrc1) * (1 + repRatio4))
+repLogDev08 = math.exp(math.log(lrc1) * (1 - repRatio4))
+repLogDev09 = math.exp(math.log(lrc1) * (1 + repRatio5))
+repLogDev10 = math.exp(math.log(lrc1) * (1 - repRatio5))
+repLogDev11 = math.exp(math.log(lrc1) * (1 + repRatio6))
+repLogDev12 = math.exp(math.log(lrc1) * (1 - repRatio6))
+
+val01 = logDev == 'deactive' ? stdDev01 : logDev == 'standard' ? logDev01 : repLogDev01
+val02 = logDev == 'deactive' ? stdDev02 : logDev == 'standard' ? logDev02 : repLogDev02
+val03 = logDev == 'deactive' ? stdDev03 : logDev == 'standard' ? logDev03 : repLogDev03
+val04 = logDev == 'deactive' ? stdDev04 : logDev == 'standard' ? logDev04 : repLogDev04
+val05 = logDev == 'deactive' ? stdDev05 : logDev == 'standard' ? logDev05 : repLogDev05
+val06 = logDev == 'deactive' ? stdDev06 : logDev == 'standard' ? logDev06 : repLogDev06
+val07 = logDev == 'deactive' ? stdDev07 : logDev == 'standard' ? logDev07 : repLogDev07
+val08 = logDev == 'deactive' ? stdDev08 : logDev == 'standard' ? logDev08 : repLogDev08
+val09 = logDev == 'deactive' ? stdDev09 : logDev == 'standard' ? logDev09 : repLogDev09
+val10 = logDev == 'deactive' ? stdDev10 : logDev == 'standard' ? logDev10 : repLogDev10
+val11 = logDev == 'deactive' ? stdDev11 : logDev == 'standard' ? logDev11 : repLogDev11
+val12 = logDev == 'deactive' ? stdDev12 : logDev == 'standard' ? logDev12 : repLogDev12
+ 
+plot(val01, 'LRC Band StdDev Fib 1 LowerBound', color1, 1)
+plot(val02, 'LRC Band StdDev Fib 1 LowerBound', color1, 1)
+plot(val03, 'LRC Band StdDev Fib 1 UpperBound', color1, 1)
+plot(val04, 'LRC Band StdDev Fib 1 UpperBound', color1, 1)
+plot(val05, 'LRC Band StdDev Fib 2 LowerBound', color2, 1)
+plot(val06, 'LRC Band StdDev Fib 2 LowerBound', color2, 1)
+plot(val07, 'LRC Band StdDev Fib 2 UpperBound', color2, 1)
+plot(val08, 'LRC Band StdDev Fib 2 UpperBound', color2, 1)
+plot(val09, 'LRC Band StdDev Fib 3 LowerBound', color3, 1)
+plot(val10, 'LRC Band StdDev Fib 3 LowerBound', color3, 1)
+plot(val11, 'LRC Band StdDev Fib 3 UpperBound', color3, 1)
+plot(val12, 'LRC Band StdDev Fib 3 UpperBound', color3, 1)
