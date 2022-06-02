@@ -1,0 +1,109 @@
+//@version=5
+// 
+indicator('Experimental Varying Length Moving Exponential Regression Channel', 'EXP+VLMERC by MD', overlay = true,  max_bars_back = 5000)
+
+// - START OF INPUTS -----------------------------------------------------------
+group_linReg    = 'Exponential Regression Channel Settings'
+i_linregSrc     = input.source(close, 'Source', group = group_linReg)
+doubleLog        = input.bool(true, 'Double Log', group = group_linReg)
+bypass        = input.bool(true, 'Bypass Dev', group = group_linReg)
+y = input.int(5, 'Analysis period', minval=0, maxval=30, group = group_linReg)
+inf_period = input.bool(true, 'Infinite analysis period', group = group_linReg)
+logDev = input.bool(false, 'Logaritmic deviation calculation', group = group_linReg)
+div_type = input.string('standard', 'StdDiv Calculation Method', options=['standard', 'moving', 'RVI Supported'], group=group_linReg)
+
+color1 = input.color(color.white, 'Regression Fib 1      ', inline='lrLine', group=group_linReg)
+color2 = input.color(color.aqua, 'Regression Fib 2      ', inline='lrLine', group=group_linReg)
+color3 = input.color(color.red, 'Regression Fib 3      ', inline='lrLine', group=group_linReg)
+
+fib1 = input.float(0.618, 'fib1 LB', minval=0.0, maxval=5.0, group = group_linReg)
+fib2 = input.float(1.000, 'fib1 UB', minval=0.0, maxval=5.0, group = group_linReg)
+fib3 = input.float(1.618, 'fib2 LB', minval=0.0, maxval=5.0, group = group_linReg)
+fib4 = input.float(2.000, 'fib2 UB', minval=0.0, maxval=5.0, group = group_linReg)
+fib5 = input.float(2.618, 'fib3 LB', minval=0.0, maxval=5.0, group = group_linReg)
+fib6 = input.float(3.000, 'fib3 UB', minval=0.0, maxval=5.0, group = group_linReg)
+
+singleLogSRC = math.log(i_linregSrc)
+doubleLogSRC = math.log(math.log(i_linregSrc))
+movingSeriesSrc = doubleLog ? doubleLogSRC : singleLogSRC
+
+linRegLen = inf_period ? bar_index + 1 : 360*y
+movingSeries1 = ta.linreg(movingSeriesSrc, linRegLen, 0)
+lrc1 = doubleLog ? math.exp(math.exp(movingSeries1)) : math.exp(movingSeries1)
+
+// - START OF RVI CODE -------------------------------------------------------------------------------------- //
+group_RVI   = 'RVI Settings'
+stdevLength = input.int(title='Standard Deviation Length', minval=1, defval=10, group = group_RVI)
+stdevType = input.string(title='Standard Deviation Type', defval='Population', options=['Population', 'Sample'], group = group_RVI)
+smoothLength = input.int(title='Smoothing Length', minval=1, defval=14, group = group_RVI)
+obLevel = input(title='Overbought Level', defval=60, group = group_RVI)
+osLevel = input(title='Oversold Level', defval=40, group = group_RVI)
+useRefined = input(title='Use Refined Version of RVI ?', defval=true, group = group_RVI)
+highlightBreakouts = input(title='Highlight Overbought/Oversold Breakouts ?', defval=true, group = group_RVI)
+src = input(title='Source', defval=close, group = group_RVI)
+
+sampleStdev(src, length) =>
+    dev = src - ta.sma(src, length)
+    variance = math.sum(math.pow(dev, 2), length) / (length - 1)
+    math.sqrt(variance)
+
+stdev_1 = ta.stdev(src, stdevLength)
+sampleStdev__1 = sampleStdev(src, stdevLength)
+selectedStdev = stdevType == 'Population' ? stdev_1 : sampleStdev__1
+
+// Original version (1993)
+rviOriginal(src) =>
+    upSum = ta.ema(ta.change(src) >= 0 ? selectedStdev : 0, smoothLength)
+    downSum = ta.ema(ta.change(src) >= 0 ? 0 : selectedStdev, smoothLength)
+    100 * upSum / (upSum + downSum)
+
+// Refined version (1995)
+rviOriginal__1 = rviOriginal(high)
+rviOriginal__2 = rviOriginal(low)
+avg_1 = math.avg(rviOriginal__1, rviOriginal__2)
+rviOriginal__3 = rviOriginal(src)
+rvi = useRefined ? avg_1 : rviOriginal__3
+// - END OF RVI CODE -------------------------------------------------------------------------------------- //
+	 
+devLen = bypass ? bar_index/3 + 1 : 360*y
+devSensitive = ta.ema(math.sqrt(ta.stdev(close, 180) * ta.stdev(high-low, 60)) * (1 + rvi / 100) , 90) 
+devHalfLife = ta.ema(ta.stdev(close, 360 * y, true), 180*y)
+devInfinite = ta.ema(ta.stdev(close, bar_index + 1, true), 180)
+// devMoving = ta.ema(ta.stdev(close, ))
+
+dev1 = div_type == 'moving' ? devInfinite : div_type == 'standard' ? devHalfLife : devSensitive
+
+plot(lrc1, 'LRC Band Main', color.green, 3)
+
+ratio1 = fib1 * dev1 / lrc1
+ratio2 = fib2 * dev1 / lrc1
+ratio3 = fib3 * dev1 / lrc1
+ratio4 = fib4 * dev1 / lrc1
+ratio5 = fib5 * dev1 / lrc1
+ratio6 = fib6 * dev1 / lrc1
+
+val01 = logDev ? math.exp(math.log(lrc1) * (1 + ratio1)): lrc1 * (1 + ratio1)
+val02 = logDev ? math.exp(math.log(lrc1) * (1 - ratio1)): lrc1 * (1 - ratio1)
+val03 = logDev ? math.exp(math.log(lrc1) * (1 + ratio2)): lrc1 * (1 + ratio2)
+val04 = logDev ? math.exp(math.log(lrc1) * (1 - ratio2)): lrc1 * (1 - ratio2)
+val05 = logDev ? math.exp(math.log(lrc1) * (1 + ratio3)): lrc1 * (1 + ratio3)
+val06 = logDev ? math.exp(math.log(lrc1) * (1 - ratio3)): lrc1 * (1 - ratio3)
+val07 = logDev ? math.exp(math.log(lrc1) * (1 + ratio4)): lrc1 * (1 + ratio4)
+val08 = logDev ? math.exp(math.log(lrc1) * (1 - ratio4)): lrc1 * (1 - ratio4)
+val09 = logDev ? math.exp(math.log(lrc1) * (1 + ratio5)): lrc1 * (1 + ratio5)
+val10 = logDev ? math.exp(math.log(lrc1) * (1 - ratio5)): lrc1 * (1 - ratio5)
+val11 = logDev ? math.exp(math.log(lrc1) * (1 + ratio6)): lrc1 * (1 + ratio6)
+val12 = logDev ? math.exp(math.log(lrc1) * (1 - ratio6)): lrc1 * (1 - ratio6)
+
+plot(val01, 'LRC Band StdDev Fib 1 LowerBound', color1, 1)
+plot(val02, 'LRC Band StdDev Fib 1 LowerBound', color1, 1)
+plot(val03, 'LRC Band StdDev Fib 1 UpperBound', color1, 1)
+plot(val04, 'LRC Band StdDev Fib 1 UpperBound', color1, 1)
+plot(val05, 'LRC Band StdDev Fib 2 LowerBound', color2, 1)
+plot(val06, 'LRC Band StdDev Fib 2 LowerBound', color2, 1)
+plot(val07, 'LRC Band StdDev Fib 2 UpperBound', color2, 1)
+plot(val08, 'LRC Band StdDev Fib 2 UpperBound', color2, 1)
+plot(val09, 'LRC Band StdDev Fib 3 LowerBound', color3, 1)
+plot(val10, 'LRC Band StdDev Fib 3 LowerBound', color3, 1)
+plot(val11, 'LRC Band StdDev Fib 3 UpperBound', color3, 1)
+plot(val12, 'LRC Band StdDev Fib 3 UpperBound', color3, 1)

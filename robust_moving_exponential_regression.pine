@@ -5,15 +5,31 @@ indicator('Moving Exponential Regression Channel', 'RMERC by MD', overlay = true
 // -Inputs -------------------------------------------------------------------------------------- //
 group_linReg    = 'Moving Exponential Regression Channel Settings'
 i_linregSrc     = input.source(close, '       Source'     , inline='LinReg1', group=group_linReg)
+doubleLog        = input.bool(true, 'Double Log'      , inline='LinReg1', group=group_linReg)
+
+max_bars_back(i_linregSrc, 5000)
 
 singleLogSRC = math.log(i_linregSrc)
 doubleLogSRC = math.log(math.log(i_linregSrc))
 movingSeriesSrc = doubleLog ? doubleLogSRC : singleLogSRC
 
 movingSeries = ta.linreg(movingSeriesSrc, bar_index + 1, 0)
-plotSeries = doubleLog ? math.exp(math.exp(movingSeries)) : math.exp(movingSeries)
+dev = ta.ema(ta.stdev(close, 360, false), 180)
+lrc = doubleLog ? math.exp(math.exp(movingSeries)) : math.exp(movingSeries)
 
-plot(plotSeries)
+
+i_lrcolorBand1 = input.color(#00897b, '1', inline='Bands')
+i_lrcolorBand2 = input.color(#00897b, '2', inline='Bands')
+i_lrcolorBand3 = input.color(#00897b, '3', inline='Bands')
+plot(lrc + 0 * dev, 'LRC Band StdDev Main', color.white, 1)
+plot(lrc + 0.618 * dev, 'LRC Band StdDev 0', i_lrcolorBand1, 1)
+plot(lrc - 0.618 * dev, 'LRC Band StdDev 0', i_lrcolorBand1, 1)
+plot(lrc + 1.618 * dev, 'LRC Band StdDev 1', i_lrcolorBand1, 1)
+plot(lrc - 1.618 * dev, 'LRC Band StdDev 1', i_lrcolorBand1, 1)
+plot(lrc + 2.618 * dev, 'LRC Band StdDev 2', i_lrcolorBand2, 1)
+plot(lrc - 2.618 * dev, 'LRC Band StdDev 2', i_lrcolorBand2, 1)
+plot(lrc + 3.618 * dev, 'LRC Band StdDev 3', i_lrcolorBand3, 1)
+plot(lrc - 3.618 * dev, 'LRC Band StdDev 3', i_lrcolorBand3, 1)
 
 f_calcSlope(_source, _length) =>
     max_bars_back(_source, 5000)

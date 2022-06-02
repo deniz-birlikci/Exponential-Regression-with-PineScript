@@ -3,9 +3,12 @@
 indicator('Exponential Regression Channel', 'LinReg ʙʏ MD', overlay = true)
 
 // -Inputs -------------------------------------------------------------------------------------- //
+group_linReg    = 'Exponential Regression Channel  Settings'
+
 i_linregLength  = input.int(200, '', minval=2, maxval=5000, inline='LinReg1', group=group_linReg)
 i_linregSrc     = input.source(close, '       Source'     , inline='LinReg1', group=group_linReg)
 i_ln_linregSrc = math.log(i_linregSrc)
+i_extendLines   = input.bool(false, 'Extend Lines       ', inline='Lines', group=group_linReg)
 
 
 f_calcSlope(_source, _length) =>
@@ -48,4 +51,27 @@ f_calcDev(_source, _length, _slope, _intercept) =>
     stdDev = math.sqrt(stdDevAcc / periods)
     stdDev
 
-[slope, intercept] = f_calcSlope(math.log(i_linregSrc), i_linregLength)
+[slope, intercept] = f_calcSlope(i_ln_linregSrc, i_linregLength)
+stdDev = f_calcDev(i_ln_linregSrc, i_linregLength, slope, intercept)
+startPrice = math.exp(intercept + slope * (i_linregLength - 1))
+endPrice = math.exp(intercept)
+
+// Plotting the curve
+f_drawCurve(_barStart, _barEnd, _slope, _intercept, _dev, _devMult, _extend) =>
+    duration = _extend ? 50 + _barEnd - _barStart : _barEnd - _barStart
+    prevValue = math.exp(_slope * (_barStart) + _intercept) + (_devMult * _dev)
+    
+    for i = 1 to duration
+        bar = _barStart + i
+        value = math.exp(_slope * bar + _intercept) + (_devMult * _dev)
+        line.new(bar - 1, prevValue, bar, value, xloc.bar_index, line.style_dotted)
+
+        prevValue := value
+
+f_drawCurve(bar_index - i_linregLength + 1, bar_index, slope, intercept, stdDev, 1, i_extendLines)
+f_drawCurve(bar_index - i_linregLength + 1, bar_index, slope, intercept, stdDev, -1, i_extendLines)
+f_drawCurve(bar_index - i_linregLength + 1, bar_index, slope, intercept, stdDev, 2, i_extendLines)
+f_drawCurve(bar_index - i_linregLength + 1, bar_index, slope, intercept, stdDev, -2, i_extendLines)
+f_drawCurve(bar_index - i_linregLength + 1, bar_index, slope, intercept, stdDev, 3, i_extendLines)
+f_drawCurve(bar_index - i_linregLength + 1, bar_index, slope, intercept, stdDev, 3, i_extendLines)
+

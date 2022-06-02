@@ -1,0 +1,44 @@
+//@version=5
+// 
+indicator('Multi Year Moving Exponential Regression Channel', 'MYMERC by MD', overlay = true)
+
+// -Inputs -------------------------------------------------------------------------------------- //
+group_linReg    = 'Multi Year Moving Exponential Regression Channel Settings'
+i_linregSrc     = input.source(close, '       Source'     , inline='LinReg1', group=group_linReg)
+doubleLog        = input.bool(true, 'Double Log'      , inline='LinReg1', group=group_linReg)
+limit = input.int(3, '', minval=1, maxval=30 , inline='Limit', group=group_linReg)
+
+singleLogSRC = math.log(i_linregSrc)
+doubleLogSRC = math.log(math.log(i_linregSrc))
+movingSeriesSrc = doubleLog ? doubleLogSRC : singleLogSRC
+
+y1 = math.min(1, limit)
+y2 = math.min(3, limit)
+y3 = math.min(5, limit)
+y4 = math.min(10, limit)
+y5 = math.min(20, limit)
+
+movingSeries1 = ta.linreg(movingSeriesSrc, math.min(360*y1, bar_index + 1), 0)
+movingSeries2 = ta.linreg(movingSeriesSrc, math.min(360*y2, bar_index + 1), 0)
+movingSeries3 = ta.linreg(movingSeriesSrc, math.min(360*y3, bar_index + 1), 0)
+movingSeries4 = ta.linreg(movingSeriesSrc, math.min(360*y4, bar_index + 1), 0)
+movingSeries5 = ta.linreg(movingSeriesSrc, math.min(360*y5, bar_index + 1), 0)
+
+lrc1 = doubleLog ? math.exp(math.exp(movingSeries1)) : math.exp(movingSeries1)
+lrc2 = doubleLog ? math.exp(math.exp(movingSeries2)) : math.exp(movingSeries2)
+lrc3 = doubleLog ? math.exp(math.exp(movingSeries3)) : math.exp(movingSeries3)
+lrc4 = doubleLog ? math.exp(math.exp(movingSeries4)) : math.exp(movingSeries4)
+lrc5 = doubleLog ? math.exp(math.exp(movingSeries5)) : math.exp(movingSeries5)
+
+// movingSeries = ta.linreg(movingSeriesSrc, bar_index + 1, 0)
+dev1 = ta.ema(ta.stdev(close, 360 * y1, false), 180)
+dev2 = ta.ema(ta.stdev(close, 360 * y2, false), 180)
+dev3 = ta.ema(ta.stdev(close, 360 * y3, false), 180)
+dev4 = ta.ema(ta.stdev(close, 360 * y4, false), 180)
+dev5 = ta.ema(ta.stdev(close, 360 * y5, false), 180)
+
+plot(lrc1, 'LRC Band 1', color.white, 1)
+plot(lrc2, 'LRC Band 2', color.yellow, 1)
+plot(lrc3, 'LRC Band 3', color.green, 1)
+plot(lrc4, 'LRC Band 4', color.aqua, 1)
+plot(lrc5, 'LRC Band 5', color.red, 1)
